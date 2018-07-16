@@ -1,13 +1,21 @@
-FROM node:alpine
+FROM golang:alpine
+
+RUN apk add --no-cache git
+
+ENV GOBIN /go/bin
 
 RUN mkdir /app
 
-COPY ./package.json /app
+RUN mkdir /go/src/app
 
-WORKDIR /app
+COPY . /go/src/app
 
-RUN npm install
+WORKDIR /go/src/app
 
-COPY . /app
+RUN go get -u github.com/golang/dep/...
 
-CMD [ "node", "/app/poller.js" ]
+RUN dep ensure
+
+RUN go build -o /app/poller .
+
+CMD [ "/app/poller" ]

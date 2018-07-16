@@ -22,11 +22,17 @@ func testProject(){
 }
 
 var hash = ""
+var recorridoIDs []int
+
+func getRecorridoIDs() {
+	
+}
 
 func main(){
 	var wg sync.WaitGroup
 
 	// can spawn any number of goroutines in parallel, main program will never end
+	getRecorridoIDs()
 	go crawl()
 	go getHash()
 	// sleep forever
@@ -54,7 +60,7 @@ func getHash(){
 	html := string(body)
 	r := regexp.MustCompile(`(?m)hash2 = "(.*)"`)
 	match := r.FindStringSubmatch(html)
-	
+
 	if match != nil {
 		hash = match[1]
 		fmt.Print("got new hash: ")
@@ -63,6 +69,7 @@ func getHash(){
 
 }
 
+// GpsPing defines one gps data from one bus
 type GpsPing struct {
 	Timestamp string `json:"dt_tracker"`
 	Lat float64 `json:",string"`
@@ -74,9 +81,17 @@ type GpsPing struct {
 	Interno string `json:"interno"`
 }
 
+// Response from gpsbahia server
 type Response struct {
 	Status string `json:"status"`
 	Data []GpsPing `json:"data"`
+}
+
+// rid, gpsant
+// rid, gpsant
+
+func getRecorridoID(gps GpsPing) string {
+	return "1"
 }
 
 func crawlOne(url string){
@@ -94,8 +109,10 @@ func crawlOne(url string){
 		// handle error
 	}
 	json.Unmarshal(body, &response)
-	
-	fmt.Println(response)
+	for _, gps := range response.Data {
+		recorridoID := getRecorridoID(gps)
+		fmt.Println(recorridoID)
+	}
 }
 
 func crawl(){
@@ -104,6 +121,28 @@ func crawl(){
 
 	baseURL := "https://www.gpsbahia.com.ar/web/get_track_data"
 	lineas := []int{1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 30, 31}
+
+	// 1  509
+	// 2
+	// 3  319
+	// 4  500
+	// 5  502
+	// 6  503
+	// 7  504
+	// 8  505
+	// 9  506
+	// 10 507
+	// 11 512
+	// 12 513
+	// 13 513 EX     no
+	// 14 514
+	// 15 516        no
+	// 16 517
+	// 17 518
+	// 18 519
+	// 19 519 A
+	// 30 520        no
+	// 31 504 EX     no
 
 	if hash != "" {
 		for _, lineaID := range lineas {
