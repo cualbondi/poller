@@ -1,44 +1,43 @@
 package main
 
-// import "github.com/paulmach/go.geo"
 import (
-	"github.com/lib/pq"
+	"github.com/paulmach/go.geo"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"fmt"
 	"time"
 	"sync"
-	// "strconv"
 	"net/http"
 	"regexp"
 	"io/ioutil"
 	"encoding/json"
-	"database/sql"
-	_ "github.com/lib/pq"
 	"os"
 	"log"
+	// "strconv"
 	// "strings"
 )
 
-// func testProject(){
-// 	p1 := geo.NewPoint(0, 0)
-// 	p2 := geo.NewPoint(1, 0)
-// 	p3 := geo.NewPoint(0.5, 1)
-// 	l := geo.NewLine(p1, p2)
-// 	proj := l.Project(p3)
-// 	//fmt.Println(proj)
-// }
+func testProject(){
+	p1 := geo.NewPoint(0, 0)
+	p2 := geo.NewPoint(1, 0)
+	p3 := geo.NewPoint(0.5, 1)
+	l := geo.NewLine(p1, p2)
+	proj := l.Project(p3)
+	fmt.Println(proj)
+}
 
 var hash = ""
 var recorridoIDs []int
-var db *sql.DB
-
+var connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("POSTGRES_DB"))
+var db, err = gorm.Open("postgres", connStr)
 // get ids from db and save into an array
 func getRecorridoIDs() {
 	type Mapping struct {
-		providerLineaID int // esto esel id de bahia? si, provider=gpsbahia
+		providerLineaID int
 		cualbondiLineaSlug string
 		cualbondiRecorridoIDs []int
 	}
-	// que pasa si te queres saltear un indice, o si el id del provider no viene consecutivo?
+
 	idMapping := []Mapping{
 		{1, "509", []int{}},
 		{4, "500", []int{}},
@@ -60,10 +59,6 @@ func getRecorridoIDs() {
 		//30: 520        no
 		//31: 504 EX     no
 	}
-
-	// hay dos cosas separadas, me di cuenta
-	// providerlineaid -- cualbondilineaid -- cualbondirecorridoids (multiple/2)   <-- este es el mapping
-	// recorridoid(unique) -- gpsposprev
 	var slugs = []string{}
 	for _, item := range idMapping {
 		slugs = append(slugs, item.cualbondiLineaSlug)
@@ -79,21 +74,20 @@ func getRecorridoIDs() {
 			JOIN catastro_ciudad_lineas ccl on (ccl.linea_id = li.id)
 			JOIN catastro_ciudad ci on (ccl.ciudad_id = ci.id)
 		WHERE
-			ci.slug = $1
-			AND li.slug in ($2)
+			ci.slug = ?
+			AND li.slug in (?)
 	`
-	stmt, err := db.Prepare(query)
-	rows, err := stmt.Query("bahia-blanca", pq.Array(slugs))
+	
+	rows, err := db.Raw(query, "bahia-blanca", slugs).Rows()
+	defer rows.Close()
 
 	if err != nil {
 		log.Println(query)
 		log.Fatal(err)
 	}
-	defer db.Close()
 	
 	// no entra nunca a este while
 	for rows.Next() {
-		fmt.Println(123)
 		var (
 			id int
         )
@@ -106,14 +100,6 @@ func getRecorridoIDs() {
 
 func main(){
 	var wg sync.WaitGroup
-
-	connStr := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("POSTGRES_DB")) // puede ser que este mal el orden en esto?
-	var err error
-	db, err = sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("ERROR1!")
-		log.Fatal(err)
-	}
 
 	// can spawn any number of goroutines in parallel, main program will never end
 	getRecorridoIDs()
@@ -129,10 +115,9 @@ func getHash(){
 
 	response, err := http.Get("https://www.gpsbahia.com.ar")
 	if err != nil {
-		// handle error
 		fmt.Print("ERROR1! ")
 		fmt.Println(err)
-		return // will retry after 5 seconds because of defer
+		return
 	}
 	defer response.Body.Close()
 	body, err := ioutil.ReadAll(response.Body)
@@ -172,15 +157,12 @@ type Response struct {
 }
 
 // rid, gpsant
-// rid, gpsant
 // get id from a gpsping, use previous gps value
 func getRecorridoID(gps GpsPing) string {
 	return "1"
 }
 
 func crawlOne(url string){
-	// fmt.Println(url)
-
 	resp, err := http.Get(url)
 	if err != nil {
 		// handle error
