@@ -2,6 +2,17 @@
 
 
 [[projects]]
+  branch = "master"
+  digest = "1:6866fc4160284073ee63525fc9e2cdef043a26892574340f71b4add734232853"
+  name = "github.com/lib/pq"
+  packages = [
+    ".",
+    "oid",
+  ]
+  pruneopts = "UT"
+  revision = "90697d60dd844d5ef6ff15135d0203f65d2f53b8"
+
+[[projects]]
   digest = "1:1a887a5005071f452147c05ac66bb8cb5a33007529686bd4c11a21a3f70ebfb0"
   name = "github.com/paulmach/go.geo"
   packages = ["."]
@@ -20,6 +31,9 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = ["github.com/paulmach/go.geo"]
+  input-imports = [
+    "github.com/lib/pq",
+    "github.com/paulmach/go.geo",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
