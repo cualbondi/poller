@@ -28,7 +28,7 @@ type Mapping struct {
 // Recorrido from cualbondi database
 type Recorrido struct {
 	id   int
-	ruta *geo.Line
+	ruta *geo.Path
 }
 
 var idMapping = []Mapping{
@@ -93,9 +93,9 @@ func getRecorridoIDs() {
 	}
 	query := `
 		SELECT
-			li.slug as linea_slug,
-			re.id as r_id,
-			ST_AsBinary(re.ruta) as r_ruta
+			li.slug as lslug,
+			re.id as rid,
+			ST_AsBinary(re.ruta) as rruta
 		FROM core_recorrido re
 			JOIN core_linea li on (re.linea_id = li.id)
 			JOIN catastro_ciudad_lineas ccl on (ccl.linea_id = li.id)
@@ -115,20 +115,20 @@ func getRecorridoIDs() {
 
 	for rows.Next() {
 		var (
-			lineaSlug string
-			rid       int
-			rruta     *geo.Line
+			lslug string
+			rid   int
+			rruta *geo.Path
 		)
-		if err := rows.Scan(&lineaSlug, &rid, &rruta); err != nil {
+		if err := rows.Scan(&lslug, &rid, &rruta); err != nil {
 			panic(err)
 		}
 		for i, m := range idMapping {
-			if m.cualbondiLineaSlug == lineaSlug {
+			if m.cualbondiLineaSlug == lslug {
 				idMapping[i].cualbondiRecorridoIDs = append(m.cualbondiRecorridoIDs, Recorrido{rid, rruta})
 			}
 		}
 	}
-	// return idMapping
+	// fmt.Println(idMapping)
 }
 
 func main() {
