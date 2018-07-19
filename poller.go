@@ -80,10 +80,38 @@ type Response struct {
 	Data   []GpsPing `json:"data"`
 }
 
+var maxPingsToBuffer = 2
+
+// GpsBuffer for last pings
+type GpsBuffer struct {
+	m     map[int][]GpsPing
+	mutex sync.Mutex
+}
+
+func (buffer *GpsBuffer) push(gps GpsPing) {
+	buffer.mutex.Lock()
+	defer buffer.mutex.Unlock()
+
+	pings, ok := buffer.m[gps.IDGps]
+	if !ok {
+		buffer.m[gps.IDGps] = []GpsPing{gps}
+		return
+	}
+	if len(pings) < maxPingsToBuffer {
+		buffer.m[gps.IDGps] = append(pings, gps)
+		return
+	}
+	for i := 1; i < maxPingsToBuffer; i++ {
+		pings[i-1] = pings[i]
+	}
+	pings[maxPingsToBuffer - 1] = gps
+}
+
 var hash = ""
 var recorridoIDs []int
 var connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("POSTGRES_DB"))
 var db, err = gorm.Open("postgres", connStr)
+var gpsBuffer = GpsBuffer{make(map[int][]GpsPing), sync.Mutex{}}
 
 // get ids from db and save into an array
 func getRecorridoIDs() {
@@ -134,11 +162,11 @@ func getRecorridoIDs() {
 func main() {
 	var wg sync.WaitGroup
 
-	getRecorridoIDs()
-	// can spawn any number of goroutines in parallel, main program will never end
-	//go crawl()
-	//go getHash()
-	// sleep forever
+	// getRecorridoIDs()
+
+	go crawl()
+	go getHash()
+
 	wg.Add(1)
 	wg.Wait()
 }
@@ -182,13 +210,23 @@ func getRecorridoID(gps GpsPing) string {
 }
 
 func saveGpsToDb(gps GpsPing) {
-	return
+	query := `
+		INSERT INTO gps (timestamp, lat, lng, id_gps, speed, angle, linea_id, interno) VALUES (?)
+	`
+	db.Exec(query, []interface{}{
+		gps.Timestamp,
+		gps.Lat, 
+		gps.Lng, 
+		gps.IDGps, 
+		gps.Speed, 
+		gps.Angle, 
+		gps.LineaID, 
+		gps.Interno,
+	})
 }
 
 func saveGpsToMap(gps GpsPing) {
-	// mutex.Lock()
-	// pingsTable[gps.IDGps] = append(pingsTable[gps.IDGps], gps)
-	// mutex.Unlock()
+	gpsBuffer.push(gps)
 }
 
 func crawlOne(url string) {
@@ -205,8 +243,8 @@ func crawlOne(url string) {
 	}
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
-		go saveGpsToDb(gps)
-		go saveGpsToMap(gps)
+		saveGpsToDb(gps)
+		saveGpsToMap(gps)
 	}
 }
 
@@ -222,5 +260,6 @@ func crawl() {
 			}
 		}
 		time.Sleep(5 * time.Second)
+		fmt.Println(gpsBuffer.m)
 	}
 }
