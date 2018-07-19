@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	geo "github.com/paulmach/go.geo"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/paulsmith/gogeos/geos"
 )
 
 // Recorrido from cualbondi database
 type Recorrido struct {
 	ID        int
-	Ruta      *geo.Path
+	Ruta      *geos.Geometry
 	LineaSlug string
 }
 
@@ -41,25 +42,109 @@ func GetRecorridos(ciudadSlug string, lineaSlugs []string) []Recorrido {
 	var results []Recorrido
 	for rows.Next() {
 		var recorrido Recorrido
-		if err := rows.Scan(&recorrido.ID, &recorrido.Ruta, &recorrido.LineaSlug); err != nil {
+		var ruta []byte
+		if err := rows.Scan(&recorrido.ID, &ruta, &recorrido.LineaSlug); err != nil {
 			panic(err)
 		}
+		recorrido.Ruta = geos.Must(geos.FromWKB(ruta))
 		results = append(results, recorrido)
 	}
 	return results
 }
 
-// Search returns las rutas en *rutas* que van desde *A* hacia *B*
-// TODO: para esto deberia ser facil hacer unit test!
-func Search(rutas []*geo.Path, A *geo.Point, B *geo.Point) []*geo.Path {
-	return []*geo.Path{}
+func getGeomArr(g *geos.Geometry) []*geos.Geometry {
+	var arr []*geos.Geometry
+	_type, err := g.Type()
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch _type {
+	case geos.LINESTRING:
+		arr = append(arr, g)
+	case geos.MULTILINESTRING:
+		n, err := g.NGeometry()
+		if err != nil {
+			log.Fatal(err)
+		}
+		for i := 0; i < n; i++ {
+			arr = append(arr, geos.Must(g.Geometry(i)))
+		}
+	default:
+		log.Fatalf("unknown geometry type %v", _type)
+	}
+	return arr
 }
 
-func testProject() {
-	p1 := geo.NewPoint(0, 0)
-	p2 := geo.NewPoint(1, 0)
-	p3 := geo.NewPoint(0.5, 1)
-	l := geo.NewLine(p1, p2)
-	proj := l.Project(p3)
-	fmt.Println(proj)
+// SolutionInternal 2 segments and possible ways to go from A to B
+type SolutionInternal struct {
+	Aseg  *geos.Geometry
+	Bseg  *geos.Geometry
+	Aproj *geos.Geometry
+	Bproj *geos.Geometry
+	Apos  float64
+	Bpos  float64
+	dist  float64
+	diff  float64
+}
+
+// Solution is the solution to the Search function
+type Solution struct {
+	ruta     *geos.Geometry
+	distance float64
+}
+
+// Search returns las rutas en *rutas* que van desde *A* hacia *B*
+// TODO: para esto deberia ser facil hacer unit test!
+func Search(rutas []*geos.Geometry, A *geos.Geometry, B *geos.Geometry) []Solution {
+	var ret = []Solution{}
+	var buffsize float64 = 2
+	var Abuff = geos.Must(A.Buffer(buffsize))
+	var Bbuff = geos.Must(B.Buffer(buffsize))
+	for _, ruta := range rutas {
+		var in = false
+		var minlength float64 = 100000
+		var Aint = getGeomArr(geos.Must(Abuff.Intersection(ruta)))
+		var Bint = getGeomArr(geos.Must(Bbuff.Intersection(ruta)))
+		var solutions = []SolutionInternal{}
+		for _, A := range Aint {
+			for _, B := range Bint {
+				sol := SolutionInternal{
+					Aseg:  A,
+					Bseg:  B,
+					Aproj: geos.Must(A.Interpolate(0.5)),
+					Bproj: geos.Must(B.Interpolate(0.5)),
+				}
+				sol.Apos = ruta.Project(sol.Aproj)
+				sol.Bpos = ruta.Project(sol.Bproj)
+				sol.diff = sol.Bpos - sol.Apos
+				if sol.diff > 0 {
+					solutions = append(solutions, sol)
+					in = true
+					if sol.diff < minlength {
+						minlength = sol.diff
+					}
+				}
+			}
+		}
+		if in {
+			ret = append(ret, Solution{
+				ruta:     ruta,
+				distance: minlength,
+			})
+		}
+	}
+
+	return ret
+}
+
+// SearchTest tests the search function
+func SearchTest() {
+	r1 := geos.Must(geos.FromWKT("LINESTRING(2 0, -2 0)"))
+	r2 := geos.Must(geos.FromWKT("LINESTRING(-2 2, 4 2, 4 1.5, -2 1.5)"))
+	var rutas = []*geos.Geometry{r1, r2}
+	A := geos.Must(geos.FromWKT("POINT(0 1)"))
+	B := geos.Must(geos.FromWKT("POINT(1 1)"))
+	ret := Search(rutas, A, B)
+	fmt.Println("RETURN!")
+	spew.Dump(ret)
 }

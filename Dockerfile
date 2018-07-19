@@ -12,9 +12,9 @@ COPY . /go/src/app
 
 WORKDIR /go/src/app
 
-RUN go get -u github.com/golang/dep/...
-
-RUN dep ensure
+RUN apk add gcc libc-dev
+RUN apk add --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing geos geos-dev
+RUN go get github.com/Spatially/gogeos/geos
 
 RUN go build -o /app/*.go .
 

@@ -108,9 +108,10 @@ func main() {
 	}
 
 	//fmt.Println(idMapping)
+	SearchTest()
 
-	go crawl()
-	go getHash()
+	//go crawl()
+	//go getHash()
 
 	wg.Add(1)
 	wg.Wait()
