@@ -4,16 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
 	"regexp"
 	"sync"
 	"time"
-
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-	"github.com/paulmach/go.geo"
 	// "strconv"
 	// "strings"
 )
@@ -23,12 +17,6 @@ type Mapping struct {
 	providerLineaID       int
 	cualbondiLineaSlug    string
 	cualbondiRecorridoIDs []Recorrido
-}
-
-// Recorrido from cualbondi database
-type Recorrido struct {
-	id   int
-	ruta *geo.Line
 }
 
 var idMapping = []Mapping{
@@ -51,15 +39,6 @@ var idMapping = []Mapping{
 	//15, 516        no
 	//30: 520        no
 	//31: 504 EX     no
-}
-
-func testProject() {
-	p1 := geo.NewPoint(0, 0)
-	p2 := geo.NewPoint(1, 0)
-	p3 := geo.NewPoint(0.5, 1)
-	l := geo.NewLine(p1, p2)
-	proj := l.Project(p3)
-	fmt.Println(proj)
 }
 
 // GpsPing defines one gps data from one bus
@@ -104,65 +83,31 @@ func (buffer *GpsBuffer) push(gps GpsPing) {
 	for i := 1; i < maxPingsToBuffer; i++ {
 		pings[i-1] = pings[i]
 	}
-	pings[maxPingsToBuffer - 1] = gps
+	pings[maxPingsToBuffer-1] = gps
 }
 
 var hash = ""
 var recorridoIDs []int
-var connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("POSTGRES_DB"))
-var db, err = gorm.Open("postgres", connStr)
 var gpsBuffer = GpsBuffer{make(map[int][]GpsPing), sync.Mutex{}}
 
-// get ids from db and save into an array
-func getRecorridoIDs() {
-	var slugs = []string{}
+func main() {
+	InitDB()
+	var wg sync.WaitGroup
+
+	var lineaSlugs = []string{}
 	for _, item := range idMapping {
-		slugs = append(slugs, item.cualbondiLineaSlug)
+		lineaSlugs = append(lineaSlugs, item.cualbondiLineaSlug)
 	}
-	query := `
-		SELECT
-			li.slug as linea_slug,
-			re.id as r_id,
-			ST_AsBinary(re.ruta) as r_ruta
-		FROM core_recorrido re
-			JOIN core_linea li on (re.linea_id = li.id)
-			JOIN catastro_ciudad_lineas ccl on (ccl.linea_id = li.id)
-			JOIN catastro_ciudad ci on (ccl.ciudad_id = ci.id)
-		WHERE
-			ci.slug = ?
-			AND li.slug in (?)
-	`
-
-	rows, err := db.Raw(query, "bahia-blanca", slugs).Rows()
-	defer rows.Close()
-
-	if err != nil {
-		log.Println(query)
-		log.Fatal(err)
-	}
-
-	for rows.Next() {
-		var (
-			lineaSlug string
-			rid       int
-			rruta     *geo.Line
-		)
-		if err := rows.Scan(&lineaSlug, &rid, &rruta); err != nil {
-			panic(err)
-		}
+	res := GetRecorridos("bahia-blanca", lineaSlugs)
+	for _, r := range res {
 		for i, m := range idMapping {
-			if m.cualbondiLineaSlug == lineaSlug {
-				idMapping[i].cualbondiRecorridoIDs = append(m.cualbondiRecorridoIDs, Recorrido{rid, rruta})
+			if m.cualbondiLineaSlug == r.LineaSlug {
+				idMapping[i].cualbondiRecorridoIDs = append(m.cualbondiRecorridoIDs, Recorrido{ID: r.ID, Ruta: r.Ruta, LineaSlug: r.LineaSlug})
 			}
 		}
 	}
-	// return idMapping
-}
 
-func main() {
-	var wg sync.WaitGroup
-
-	// getRecorridoIDs()
+	//fmt.Println(idMapping)
 
 	go crawl()
 	go getHash()
@@ -195,7 +140,7 @@ func getHash() {
 			fmt.Println(hash)
 		}
 		response.Body.Close()
-		time.Sleep(5 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
@@ -207,22 +152,6 @@ func getRecorridoID(gps GpsPing) string {
 	// 	fmt.Println("recorridoID", recorridoID)
 	// }
 	return "1"
-}
-
-func saveGpsToDb(gps GpsPing) {
-	query := `
-		INSERT INTO gps (timestamp, lat, lng, id_gps, speed, angle, linea_id, interno) VALUES (?)
-	`
-	db.Exec(query, []interface{}{
-		gps.Timestamp,
-		gps.Lat, 
-		gps.Lng, 
-		gps.IDGps, 
-		gps.Speed, 
-		gps.Angle, 
-		gps.LineaID, 
-		gps.Interno,
-	})
 }
 
 func saveGpsToMap(gps GpsPing) {
@@ -243,7 +172,7 @@ func crawlOne(url string) {
 	}
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
-		saveGpsToDb(gps)
+		SaveGpsToDb(gps)
 		saveGpsToMap(gps)
 	}
 }
@@ -260,6 +189,5 @@ func crawl() {
 			}
 		}
 		time.Sleep(5 * time.Second)
-		fmt.Println(gpsBuffer.m)
 	}
 }
