@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/davecgh/go-spew/spew"
@@ -87,24 +86,18 @@ type SolutionInternal struct {
 	diff  float64
 }
 
-// Solution is the solution to the Search function
-type Solution struct {
-	ruta     *geos.Geometry
-	distance float64
-}
-
 // Search returns las rutas en *rutas* que van desde *A* hacia *B*
 // TODO: para esto deberia ser facil hacer unit test!
-func Search(rutas []*geos.Geometry, A *geos.Geometry, B *geos.Geometry) []Solution {
-	var ret = []Solution{}
+func Search(recorridos []Recorrido, A *geos.Geometry, B *geos.Geometry) []Recorrido {
+	var ret = []Recorrido{}
 	var buffsize float64 = 2
 	var Abuff = geos.Must(A.Buffer(buffsize))
 	var Bbuff = geos.Must(B.Buffer(buffsize))
-	for _, ruta := range rutas {
+	for _, recorrido := range recorridos {
 		var in = false
 		var minlength float64 = 100000
-		var Aint = getGeomArr(geos.Must(Abuff.Intersection(ruta)))
-		var Bint = getGeomArr(geos.Must(Bbuff.Intersection(ruta)))
+		var Aint = getGeomArr(geos.Must(Abuff.Intersection(recorrido.Ruta)))
+		var Bint = getGeomArr(geos.Must(Bbuff.Intersection(recorrido.Ruta)))
 		var solutions = []SolutionInternal{}
 		for _, A := range Aint {
 			for _, B := range Bint {
@@ -114,8 +107,8 @@ func Search(rutas []*geos.Geometry, A *geos.Geometry, B *geos.Geometry) []Soluti
 					Aproj: geos.Must(A.Interpolate(0.5)),
 					Bproj: geos.Must(B.Interpolate(0.5)),
 				}
-				sol.Apos = ruta.Project(sol.Aproj)
-				sol.Bpos = ruta.Project(sol.Bproj)
+				sol.Apos = recorrido.Ruta.Project(sol.Aproj)
+				sol.Bpos = recorrido.Ruta.Project(sol.Bproj)
 				sol.diff = sol.Bpos - sol.Apos
 				if sol.diff > 0 {
 					solutions = append(solutions, sol)
@@ -127,10 +120,7 @@ func Search(rutas []*geos.Geometry, A *geos.Geometry, B *geos.Geometry) []Soluti
 			}
 		}
 		if in {
-			ret = append(ret, Solution{
-				ruta:     ruta,
-				distance: minlength,
-			})
+			ret = append(ret, recorrido)
 		}
 	}
 
@@ -141,10 +131,18 @@ func Search(rutas []*geos.Geometry, A *geos.Geometry, B *geos.Geometry) []Soluti
 func SearchTest() {
 	r1 := geos.Must(geos.FromWKT("LINESTRING(2 0, -2 0)"))
 	r2 := geos.Must(geos.FromWKT("LINESTRING(-2 2, 4 2, 4 1.5, -2 1.5)"))
-	var rutas = []*geos.Geometry{r1, r2}
+	var rutas = []Recorrido{
+		Recorrido{
+			ID:   1,
+			Ruta: r1,
+		},
+		Recorrido{
+			ID:   2,
+			Ruta: r2,
+		},
+	}
 	A := geos.Must(geos.FromWKT("POINT(0 1)"))
 	B := geos.Must(geos.FromWKT("POINT(1 1)"))
 	ret := Search(rutas, A, B)
-	fmt.Println("RETURN!")
 	spew.Dump(ret)
 }

@@ -8,15 +8,17 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/paulsmith/gogeos/geos"
 	// "strconv"
 	// "strings"
 )
 
 // Mapping between gpsbahia id and cualbondi recorrido ids
 type Mapping struct {
-	providerLineaID       int
-	cualbondiLineaSlug    string
-	cualbondiRecorridoIDs []Recorrido
+	providerLineaID     int
+	cualbondiLineaSlug  string
+	cualbondiRecorridos []Recorrido
 }
 
 var idMapping = []Mapping{
@@ -102,7 +104,7 @@ func main() {
 	for _, r := range res {
 		for i, m := range idMapping {
 			if m.cualbondiLineaSlug == r.LineaSlug {
-				idMapping[i].cualbondiRecorridoIDs = append(m.cualbondiRecorridoIDs, Recorrido{ID: r.ID, Ruta: r.Ruta, LineaSlug: r.LineaSlug})
+				idMapping[i].cualbondiRecorridos = append(m.cualbondiRecorridos, Recorrido{ID: r.ID, Ruta: r.Ruta, LineaSlug: r.LineaSlug})
 			}
 		}
 	}
@@ -110,8 +112,8 @@ func main() {
 	//fmt.Println(idMapping)
 	SearchTest()
 
-	//go crawl()
-	//go getHash()
+	go crawl()
+	go getHash()
 
 	wg.Add(1)
 	wg.Wait()
@@ -145,18 +147,8 @@ func getHash() {
 	}
 }
 
-// rid, gpsant
-// get id from a gpsping, use previous gps value
-func getRecorridoID(gps GpsPing) string {
-	// for _, m := range response.Data {
-	// 	recorridoID := getRecorridoID(gps)
-	// 	fmt.Println("recorridoID", recorridoID)
-	// }
-	return "1"
-}
-
-func saveGpsToMap(gps GpsPing) {
-	gpsBuffer.push(gps)
+func sendToPub(gps GpsPing, recorrido_id int) {
+	// TODO: send data to redis Pub/Sub
 }
 
 func crawlOne(url string) {
@@ -173,8 +165,20 @@ func crawlOne(url string) {
 	}
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
-		SaveGpsToDb(gps)
-		saveGpsToMap(gps)
+		var recorridos []Recorrido
+		for _, m := range idMapping {
+			if gps.LineaID == m.providerLineaID {
+				recorridos = m.cualbondiRecorridos
+				break
+			}
+		}
+		var gpsPrev = gpsBuffer.m[gps.IDGps][len(gpsBuffer.m[gps.IDGps])-1]
+		var A = geos.Must(geos.NewPoint(geos.NewCoord(gpsPrev.Lat, gpsPrev.Lng)))
+		var B = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng)))
+		recorridos = Search(recorridos, A, B)
+		SaveGpsToDb(gps, recorridos[0].ID)
+		sendToPub(gps, recorridos[0].ID)
+		gpsBuffer.push(gps)
 	}
 }
 

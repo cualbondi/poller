@@ -23,9 +23,9 @@ func InitDB() {
 }
 
 // SaveGpsToDb guarda un punto de gps en la base de datos
-func SaveGpsToDb(gps GpsPing) {
+func SaveGpsToDb(gps GpsPing, recorrido_id int) {
 	query := `
-		INSERT INTO gps (timestamp, lat, lng, id_gps, speed, angle, linea_id, interno) VALUES (?)
+		INSERT INTO gps (timestamp, lat, lng, id_gps, speed, angle, linea_id, interno, reecorrido_id) VALUES (?)
 	`
 	db.Exec(query, []interface{}{
 		gps.Timestamp,
@@ -36,5 +36,6 @@ func SaveGpsToDb(gps GpsPing) {
 		gps.Angle,
 		gps.LineaID,
 		gps.Interno,
+		recorrido_id,
 	})
 }
