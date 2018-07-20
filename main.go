@@ -147,10 +147,6 @@ func getHash() {
 	}
 }
 
-func sendToPub(gps GpsPing, recorrido_id int) {
-	// TODO: send data to redis Pub/Sub
-}
-
 func crawlOne(url string) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -172,12 +168,20 @@ func crawlOne(url string) {
 				break
 			}
 		}
-		var gpsPrev = gpsBuffer.m[gps.IDGps][len(gpsBuffer.m[gps.IDGps])-1]
-		var A = geos.Must(geos.NewPoint(geos.NewCoord(gpsPrev.Lat, gpsPrev.Lng)))
-		var B = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng)))
-		recorridos = Search(recorridos, A, B)
-		SaveGpsToDb(gps, recorridos[0].ID)
-		sendToPub(gps, recorridos[0].ID)
+
+		var gpsPrev GpsPing
+		var recorridoID int
+		if len(gpsBuffer.m[gps.IDGps]) > 0 {
+			gpsPrev = gpsBuffer.m[gps.IDGps][len(gpsBuffer.m[gps.IDGps])-1]
+			var A = geos.Must(geos.NewPoint(geos.NewCoord(gpsPrev.Lat, gpsPrev.Lng)))
+			var B = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng)))
+			recorridos = Search(recorridos, A, B)
+			if len(recorridos) > 0 {
+				recorridoID = recorridos[0].ID
+			}
+		}
+		SaveGpsToDb(gps, recorridoID)
+		SendToPub(gps, recorridoID)
 		gpsBuffer.push(gps)
 	}
 }

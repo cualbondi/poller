@@ -5,12 +5,17 @@ import (
 	"log"
 	"os"
 
+	"github.com/paulsmith/gogeos/geos"
+
+	"github.com/go-redis/redis"
 	"github.com/jinzhu/gorm"
+
 	// dialect postgres
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
 var db *gorm.DB
+var redisClient *redis.Client
 
 // InitDB call this initially in main
 func InitDB() {
@@ -20,22 +25,51 @@ func InitDB() {
 	if err != nil {
 		log.Panic(err)
 	}
+
+	db.Exec(`
+		CREATE TABLE IF NOT EXISTS gps (
+			id bigserial not null CONSTRAINT pk PRIMARY KEY,
+			timestamp timestamp,
+			latlng geometry(Point, 0),
+			id_gps bigint,
+			speed float,
+			angle float,
+			reecorrido_id int,
+			meta text
+		)
+	`)
+
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 }
 
 // SaveGpsToDb guarda un punto de gps en la base de datos
-func SaveGpsToDb(gps GpsPing, recorrido_id int) {
+func SaveGpsToDb(gps GpsPing, recorridoID int) {
 	query := `
-		INSERT INTO gps (timestamp, lat, lng, id_gps, speed, angle, linea_id, interno, reecorrido_id) VALUES (?)
+		INSERT INTO gps (timestamp, latlng, id_gps, speed, angle, reecorrido_id, meta) VALUES (?)
 	`
-	db.Exec(query, []interface{}{
+	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng))).Hex()
+	if err != nil {
+		log.Println("error decoding")
+	}
+	var meta = fmt.Sprintf("%d, %s", gps.LineaID, gps.Interno)
+	var data = []interface{}{
 		gps.Timestamp,
-		gps.Lat,
-		gps.Lng,
+		string(point),
 		gps.IDGps,
 		gps.Speed,
 		gps.Angle,
-		gps.LineaID,
-		gps.Interno,
-		recorrido_id,
-	})
+		recorridoID,
+		meta,
+	}
+	db.Exec(query, data)
+}
+
+// SendToPub sends a message to the redis channel
+func SendToPub(gps GpsPing, recorridoID int) {
+	// send data to redis Pub/Sub
+	redisClient.Publish("gps-<id_recorrido>", gps)
 }
