@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -68,8 +69,33 @@ func SaveGpsToDb(gps GpsPing, recorridoID int) {
 	db.Exec(query, data)
 }
 
+type pubmessage struct {
+	RecorridoID int
+	Timestamp   string
+	Lat         float64
+	Lng         float64
+	Angle       float64
+	Speed       float64
+	IDGps       int
+}
+
 // SendToPub sends a message to the redis channel
 func SendToPub(gps GpsPing, recorridoID int) {
 	// send data to redis Pub/Sub
-	redisClient.Publish("gps-<id_recorrido>", gps)
+	data, err := json.Marshal(pubmessage{
+		RecorridoID: recorridoID,
+		Timestamp:   gps.Timestamp,
+		Lat:         gps.Lat,
+		Lng:         gps.Lng,
+		Angle:       gps.Angle,
+		Speed:       gps.Speed,
+		IDGps:       gps.IDGps,
+	})
+	if err != nil {
+		log.Println("json marshal", err)
+	}
+	_, err = redisClient.Publish("gps-<id_recorrido>", data).Result()
+	if err != nil {
+		log.Println("redis", err)
+	}
 }
