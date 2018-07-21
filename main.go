@@ -88,14 +88,32 @@ func (buffer *GpsBuffer) push(gps GpsPing) {
 	pings[maxPingsToBuffer-1] = gps
 }
 
+func (buffer *GpsBuffer) getLatest(id int) GpsPing {
+	value := buffer.m[id]
+	return value[len(value)-1]
+}
+
 var hash = ""
 var recorridoIDs []int
 var gpsBuffer = GpsBuffer{make(map[int][]GpsPing), sync.Mutex{}}
 
 func main() {
 	InitDB()
-	var wg sync.WaitGroup
 
+	populateIdMapping()
+
+	SearchTest()
+
+	go crawl()
+
+	// run forever
+	var wg sync.WaitGroup
+	wg.Add(1)
+	wg.Wait()
+}
+
+// populate a map that liks provider ids with cb data
+func populateIdMapping(){
 	var lineaSlugs = []string{}
 	for _, item := range idMapping {
 		lineaSlugs = append(lineaSlugs, item.cualbondiLineaSlug)
@@ -108,17 +126,9 @@ func main() {
 			}
 		}
 	}
-
-	//fmt.Println(idMapping)
-	SearchTest()
-
-	go crawl()
-	go getHash()
-
-	wg.Add(1)
-	wg.Wait()
 }
 
+// scraps the hash needed for gps updates for provider website
 func getHash() {
 	for {
 		response, err := http.Get("https://www.gpsbahia.com.ar")
@@ -150,14 +160,14 @@ func getHash() {
 func crawlOne(url string) {
 	resp, err := http.Get(url)
 	if err != nil {
-		// handle error
+		// TODO: handle error
 	}
 	defer resp.Body.Close()
 
 	var response Response
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		// handle error
+		// TODO: handle error
 	}
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
@@ -187,6 +197,7 @@ func crawlOne(url string) {
 }
 
 func crawl() {
+	go getHash()
 	for {
 		baseURL := "https://www.gpsbahia.com.ar/web/get_track_data"
 		lineas := []int{1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 30, 31}
