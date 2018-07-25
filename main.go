@@ -78,6 +78,8 @@ func (buffer *GpsBuffer) push(gps GpsPing) {
 		buffer.m[gps.IDGps] = []GpsPing{gps}
 		return
 	}
+	// TODO: tal vez aca agregar otra condicion para que solamente appendee el nuevo punto si esta a mas de x cantidad de metros
+	// o agrandar el maxPingsToBuffer a no se, 500, y modificar la funcion getLatest para que reciba un 2 argumentos mas _distancia_ y _point_, que devuelva el latest que esta a mas que _distancia_ de _point_
 	if len(pings) < maxPingsToBuffer {
 		buffer.m[gps.IDGps] = append(pings, gps)
 		return
@@ -104,7 +106,8 @@ func main() {
 
 	SearchTest()
 
-	go crawl()
+	//go crawl()
+	crawl()
 
 	// run forever
 	var wg sync.WaitGroup
@@ -190,9 +193,14 @@ func crawlOne(url string) {
 				recorridoID = recorridos[0].ID
 			}
 		}
+		gpsBuffer.push(gps)
+		if recorridoID == 0 {
+			// fmt.Println("no match found")
+			continue
+		}
+		fmt.Println(recorridoID)
 		SaveGpsToDb(gps, recorridoID)
 		SendToPub(gps, recorridoID)
-		gpsBuffer.push(gps)
 	}
 }
 
@@ -205,7 +213,8 @@ func crawl() {
 		if hash != "" {
 			for _, lineaID := range lineas {
 				url := fmt.Sprintf("%s/%d/%s", baseURL, lineaID, hash)
-				go crawlOne(url)
+				// go crawlOne(url)
+				crawlOne(url)
 			}
 		}
 		time.Sleep(5 * time.Second)

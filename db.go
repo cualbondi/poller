@@ -26,7 +26,6 @@ func InitDB() {
 	if err != nil {
 		log.Panic(err)
 	}
-
 	db.Exec(`
 		CREATE TABLE IF NOT EXISTS gps (
 			id bigserial not null CONSTRAINT pk PRIMARY KEY,
@@ -35,7 +34,7 @@ func InitDB() {
 			id_gps bigint,
 			speed float,
 			angle float,
-			reecorrido_id int,
+			recorrido_id int,
 			meta text
 		)
 	`)
@@ -50,7 +49,7 @@ func InitDB() {
 // SaveGpsToDb guarda un punto de gps en la base de datos
 func SaveGpsToDb(gps GpsPing, recorridoID int) {
 	query := `
-		INSERT INTO gps (timestamp, latlng, id_gps, speed, angle, reecorrido_id, meta) VALUES (?)
+		INSERT INTO gps (timestamp, latlng, id_gps, speed, angle, recorrido_id, meta) VALUES (?)
 	`
 	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng))).Hex()
 	if err != nil {

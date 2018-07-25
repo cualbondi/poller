@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/paulsmith/gogeos/geos"
 )
@@ -89,6 +89,13 @@ type SolutionInternal struct {
 // Search returns las rutas en *rutas* que van desde *A* hacia *B*
 // TODO: para esto deberia ser facil hacer unit test!
 func Search(recorridos []Recorrido, A *geos.Geometry, B *geos.Geometry) []Recorrido {
+	fmt.Println("A")
+	fmt.Println(A.X())
+	fmt.Println(A.Y())
+	fmt.Println("B")
+	fmt.Println(B.X())
+	fmt.Println(B.Y())
+
 	var ret = []Recorrido{}
 	var buffsize float64 = 0.001 // alrededor de 100mts
 	var Abuff = geos.Must(A.Buffer(buffsize))
