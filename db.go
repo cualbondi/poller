@@ -72,8 +72,7 @@ func SaveGpsToDb(gps GpsPing, recorridoID int) {
 type pubmessage struct {
 	RecorridoID int
 	Timestamp   string
-	Lat         float64
-	Lng         float64
+	Point		string
 	Angle       float64
 	Speed       float64
 	IDGps       int
@@ -82,11 +81,15 @@ type pubmessage struct {
 // SendToPub sends a message to the redis channel
 func SendToPub(gps GpsPing, recorridoID int) {
 	// send data to redis Pub/Sub
+	
+	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng))).ToWKT()
+	if err != nil {
+		log.Println("error decoding")
+	}
 	data, err := json.Marshal(pubmessage{
 		RecorridoID: recorridoID,
 		Timestamp:   gps.Timestamp,
-		Lat:         gps.Lat,
-		Lng:         gps.Lng,
+		Point:		 point,
 		Angle:       gps.Angle,
 		Speed:       gps.Speed,
 		IDGps:       gps.IDGps,
