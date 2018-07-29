@@ -26,6 +26,17 @@ func InitDB() {
 	if err != nil {
 		log.Panic(err)
 	}
+	// db.Exec(`DROP TABLE IF EXISTS resultlog`)
+	db.Exec(`
+			CREATE TABLE IF NOT EXISTS resultlog (
+			id bigserial not null PRIMARY KEY,
+			idgps bigint,
+			lineaid bigint,
+			recorrido_id bigint,
+			A text,
+			B text,
+			recorridos text)
+	`)
 	db.Exec(`
 		CREATE TABLE IF NOT EXISTS gps (
 			id bigserial not null CONSTRAINT pk PRIMARY KEY,
@@ -100,4 +111,18 @@ func SendToPub(gps GpsPing, recorridoID int) {
 	if err != nil {
 		log.Println("redis", err)
 	}
+}
+
+func logResult(gps GpsPing, recorridoID int, A *geos.Geometry, B *geos.Geometry, recorridos []Recorrido){
+	a, _ := A.ToWKT()
+	b, _ := B.ToWKT()
+	rec, _ := json.Marshal(recorridos)
+	db.Exec(`INSERT INTO resultlog (idgps, lineaid, recorrido_id, A, B, recorridos) VALUES (?)`, []interface{}{
+		gps.IDGps,
+		gps.LineaID,
+		recorridoID,
+		a,
+		b,
+		rec,
+	})
 }
