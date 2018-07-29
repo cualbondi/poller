@@ -1,6 +1,7 @@
 package main
 
 import (
+	// "github.com/davecgh/go-spew/spew"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,9 +21,9 @@ type Mapping struct {
 	cualbondiLineaSlug  string
 	cualbondiRecorridos []Recorrido
 }
-
 var idMapping = []Mapping{
 	{1, "509", []Recorrido{}},
+	{3, "319", []Recorrido{}},
 	{4, "500", []Recorrido{}},
 	{5, "502", []Recorrido{}},
 	{6, "503", []Recorrido{}},
@@ -32,15 +33,15 @@ var idMapping = []Mapping{
 	{10, "507", []Recorrido{}},
 	{11, "512", []Recorrido{}},
 	{12, "513", []Recorrido{}},
+	{13, "513ex", []Recorrido{}},
 	{14, "514", []Recorrido{}},
+	{15, "516", []Recorrido{}},
 	{16, "517", []Recorrido{}},
 	{17, "518", []Recorrido{}},
 	{18, "519", []Recorrido{}},
 	{19, "519a", []Recorrido{}},
-	//13, 513 EX     no
-	//15, 516        no
-	//30: 520        no
-	//31: 504 EX     no
+	{30, "520", []Recorrido{}},
+	{31, "504ex", []Recorrido{}},
 }
 
 // GpsPing defines one gps data from one bus
@@ -102,8 +103,7 @@ var gpsBuffer = GpsBuffer{make(map[int][]GpsPing), sync.Mutex{}}
 func main() {
 	InitDB()
 
-	populateIdMapping()
-
+	populateIDMapping()
 	SearchTest()
 
 	//go crawl()
@@ -116,7 +116,7 @@ func main() {
 }
 
 // populate a map that liks provider ids with cb data
-func populateIdMapping(){
+func populateIDMapping(){
 	var lineaSlugs = []string{}
 	for _, item := range idMapping {
 		lineaSlugs = append(lineaSlugs, item.cualbondiLineaSlug)
@@ -127,6 +127,12 @@ func populateIdMapping(){
 			if m.cualbondiLineaSlug == r.LineaSlug {
 				idMapping[i].cualbondiRecorridos = append(m.cualbondiRecorridos, Recorrido{ID: r.ID, Ruta: r.Ruta, LineaSlug: r.LineaSlug})
 			}
+		}
+	}
+
+	for _, item := range idMapping {
+		if len(item.cualbondiRecorridos) != 2 {
+			fmt.Printf("Warning: slug %v does not have 2 recorridos \n", item.cualbondiLineaSlug)
 		}
 	}
 }
@@ -181,24 +187,23 @@ func crawlOne(url string) {
 				break
 			}
 		}
-
+		
 		var gpsPrev GpsPing
 		var recorridoID int
 		if len(gpsBuffer.m[gps.IDGps]) > 0 {
 			gpsPrev = gpsBuffer.m[gps.IDGps][len(gpsBuffer.m[gps.IDGps])-1]
-			var A = geos.Must(geos.NewPoint(geos.NewCoord(gpsPrev.Lat, gpsPrev.Lng)))
-			var B = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng)))
+			var A = geos.Must(geos.NewPoint(geos.NewCoord(gpsPrev.Lng, gpsPrev.Lat)))
+			var B = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lng, gps.Lat)))
 			recorridos = Search(recorridos, A, B)
 			if len(recorridos) > 0 {
 				recorridoID = recorridos[0].ID
 			}
+			logResult(gps, recorridoID, A, B, recorridos)
 		}
 		gpsBuffer.push(gps)
 		if recorridoID == 0 {
-			// fmt.Println("no match found")
 			continue
 		}
-		fmt.Println(recorridoID)
 		SaveGpsToDb(gps, recorridoID)
 		SendToPub(gps, recorridoID)
 	}
