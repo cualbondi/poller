@@ -90,7 +90,7 @@ type SolutionInternal struct {
 // TODO: para esto deberia ser facil hacer unit test!
 func Search(recorridos []Recorrido, A *geos.Geometry, B *geos.Geometry) []Recorrido {
 	var ret = []Recorrido{}
-	var buffsize float64 = 0.002 // alrededor de 100mts
+	var buffsize = 0.002 // alrededor de 100mts
 	var Abuff = geos.Must(A.Buffer(buffsize))
 	var Bbuff = geos.Must(B.Buffer(buffsize))
 	wktbuff, _ := Abuff.ToWKT() 

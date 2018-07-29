@@ -18,7 +18,7 @@ RUN mkdir /go/src/app
 
 COPY . /go/src/app
 
-WORKDIR /go/src/app
+WORKDIR /go/src/app/src
 
 RUN go build -o /app/poller
 
