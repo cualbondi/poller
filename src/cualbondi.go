@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/paulsmith/gogeos/geos"
 )
@@ -12,6 +13,36 @@ type Recorrido struct {
 	ID        int
 	Ruta      *geos.Geometry
 	LineaSlug string
+}
+
+// Mapping between gpsbahia id and cualbondi recorrido ids
+type Mapping struct {
+	providerLineaID     int
+	cualbondiLineaSlug  string
+	cualbondiRecorridos []Recorrido
+}
+
+var idMapping = []Mapping{
+	{1, "509", []Recorrido{}},
+	{3, "319", []Recorrido{}},
+	{4, "500", []Recorrido{}},
+	{5, "502", []Recorrido{}},
+	{6, "503", []Recorrido{}},
+	{7, "504", []Recorrido{}},
+	{8, "505", []Recorrido{}},
+	{9, "506", []Recorrido{}},
+	{10, "507", []Recorrido{}},
+	{11, "512", []Recorrido{}},
+	{12, "513", []Recorrido{}},
+	{13, "513ex", []Recorrido{}},
+	{14, "514", []Recorrido{}},
+	{15, "516", []Recorrido{}},
+	{16, "517", []Recorrido{}},
+	{17, "518", []Recorrido{}},
+	{18, "519", []Recorrido{}},
+	{19, "519a", []Recorrido{}},
+	{30, "520", []Recorrido{}},
+	{31, "504ex", []Recorrido{}},
 }
 
 // GetRecorridos get ids from db and save into an array
@@ -93,10 +124,6 @@ func Search(recorridos []Recorrido, A *geos.Geometry, B *geos.Geometry) []Recorr
 	var buffsize = 0.002 // alrededor de 100mts
 	var Abuff = geos.Must(A.Buffer(buffsize))
 	var Bbuff = geos.Must(B.Buffer(buffsize))
-	wktbuff, _ := Abuff.ToWKT() 
-	fmt.Println(wktbuff)
-	recwkt, _ := recorridos[0].Ruta.ToWKT()
-	fmt.Println(recwkt)
 	for _, recorrido := range recorridos {
 		var in = false
 		var minlength float64 = 100000
@@ -130,6 +157,18 @@ func Search(recorridos []Recorrido, A *geos.Geometry, B *geos.Geometry) []Recorr
 	return ret
 }
 
+// SearchDirection does a geo search for the 2 recorridoIDs of LineaId between A and B
+func SearchDirection(lineaID int, A *geos.Geometry, B *geos.Geometry) []Recorrido {
+	var recorridos []Recorrido
+	for _, m := range idMapping {
+		if lineaID == m.providerLineaID {
+			recorridos = m.cualbondiRecorridos
+			break
+		}
+	}
+	return Search(recorridos, A, B)
+}
+
 // SearchTest tests the search function
 func SearchTest() {
 	r1 := geos.Must(geos.FromWKT("LINESTRING(2 0, -2 0)"))
@@ -148,4 +187,26 @@ func SearchTest() {
 	B := geos.Must(geos.FromWKT("POINT(1 1)"))
 	ret := Search(rutas, A, B)
 	spew.Dump(ret)
+}
+
+// populate a map that liks provider ids with cb data
+func populateIDMapping() {
+	var lineaSlugs = []string{}
+	for _, item := range idMapping {
+		lineaSlugs = append(lineaSlugs, item.cualbondiLineaSlug)
+	}
+	res := GetRecorridos("bahia-blanca", lineaSlugs)
+	for _, r := range res {
+		for i, m := range idMapping {
+			if m.cualbondiLineaSlug == r.LineaSlug {
+				idMapping[i].cualbondiRecorridos = append(m.cualbondiRecorridos, Recorrido{ID: r.ID, Ruta: r.Ruta, LineaSlug: r.LineaSlug})
+			}
+		}
+	}
+
+	for _, item := range idMapping {
+		if len(item.cualbondiRecorridos) != 2 {
+			fmt.Printf("Warning: slug %v does not have 2 recorridos \n", item.cualbondiLineaSlug)
+		}
+	}
 }
