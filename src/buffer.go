@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"sync"
 	// "time"
 	"github.com/paulsmith/gogeos/geos"
@@ -28,7 +27,7 @@ func (buffer *GpsBuffer) push(gps GpsPing) {
 		buffer.values = append(pings, gps)
 	} else {
 		// shift all values to the left
-		pings = append(pings[1:], gps)
+		buffer.values = append(pings[1:], gps)
 	}
 	buffer.update()
 }
@@ -85,7 +84,7 @@ func (buffer *GpsBuffer) updateRecorrido() {
 	idmax := 0
 	max := 0
 	for idx, result := range m {
-		if result > max {
+		if result >= max {
 			idmax = idx
 			max = result
 		}
@@ -105,7 +104,7 @@ type GpsBufferMapping struct {
 	mutex sync.Mutex
 }
 
-func (mapping *GpsBufferMapping) update(gps GpsPing) (recorridoID int, err error) {
+func (mapping *GpsBufferMapping) update(gps GpsPing) (int, bool) {
 	mapping.mutex.Lock()
 	defer mapping.mutex.Unlock()
 
@@ -113,17 +112,20 @@ func (mapping *GpsBufferMapping) update(gps GpsPing) (recorridoID int, err error
 	if !ok {
 		// initialize buffer
 		mapping.m[gps.IDGps] = GpsBuffer{[]GpsPing{gps}, []int{0}, gps.Timestamp, 0, 0}
-		return 0, nil
+		return 0, false
 	}
 
 	if buffer.lastUpdated == gps.Timestamp {
-		return 0, errors.New("duplicated")
+		return 0, false
 	}
 
 	buffer.lastUpdated = gps.Timestamp
 	buffer.push(gps)
 
-	return buffer.recorridoID, nil
+	if len(buffer.values) < 2 {
+		return buffer.recorridoID, false
+	}
+	return buffer.recorridoID, true
 }
 
 func (mapping *GpsBufferMapping) getLatest(id int) GpsPing {

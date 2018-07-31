@@ -78,23 +78,17 @@ func getHash() {
 }
 
 func crawlOne(url string) {
-	resp, err := http.Get(url)
-	if err != nil {
-		// TODO: handle error
-	}
+	resp, _ := http.Get(url)
 	defer resp.Body.Close()
 
 	var response Response
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		// TODO: handle error
-	}
+	body, _ := ioutil.ReadAll(resp.Body)
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
 
-		recorridoID, err := gpsBufferMapping.update(gps)
+		recorridoID, shouldSave := gpsBufferMapping.update(gps)
 
-		if err != nil {
+		if shouldSave {
 			SaveGpsToDb(gps, recorridoID)
 			SendToPub(gps, recorridoID)
 		}
@@ -106,7 +100,8 @@ func crawl() {
 	for {
 		baseURL := "https://www.gpsbahia.com.ar/web/get_track_data"
 		lineas := []int{1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 30, 31}
-
+		// lineas := []int{7}
+		
 		if hash != "" {
 			for _, lineaID := range lineas {
 				url := fmt.Sprintf("%s/%d/%s", baseURL, lineaID, hash)
