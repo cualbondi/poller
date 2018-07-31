@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"sync"
 	"time"
-	// "github.com/paulsmith/gogeos/geos"
 )
 
 // GpsPing defines one gps data from one bus
@@ -35,13 +34,10 @@ var gpsBufferMapping = NewGpsBufferMapping()
 
 func main() {
 	InitDB()
-
 	populateIDMapping()
 	SearchTest()
-
 	//go crawl()
 	crawl()
-
 	// run forever
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -78,11 +74,17 @@ func getHash() {
 }
 
 func crawlOne(url string) {
-	resp, _ := http.Get(url)
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err)
+	}
 	defer resp.Body.Close()
 
 	var response Response
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		fmt.Println(err2)
+	}
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
 

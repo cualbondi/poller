@@ -98,6 +98,10 @@ func (buffer *GpsBuffer) getLatest() GpsPing {
 	return buffer.values[len(buffer.values)-1]
 }
 
+func NewGpsBuffer(gps GpsPing) GpsBuffer {
+	return GpsBuffer{[]GpsPing{gps}, []int{0}, gps.Timestamp, 0, 0}
+}
+
 // GpsBufferMapping is a map from ids to buffers
 type GpsBufferMapping struct {
 	m     map[int]GpsBuffer
@@ -111,7 +115,7 @@ func (mapping *GpsBufferMapping) update(gps GpsPing) (int, bool) {
 	buffer, ok := mapping.m[gps.IDGps]
 	if !ok {
 		// initialize buffer
-		mapping.m[gps.IDGps] = GpsBuffer{[]GpsPing{gps}, []int{0}, gps.Timestamp, 0, 0}
+		mapping.m[gps.IDGps] = NewGpsBuffer(gps)
 		return 0, false
 	}
 
@@ -126,11 +130,6 @@ func (mapping *GpsBufferMapping) update(gps GpsPing) (int, bool) {
 		return buffer.recorridoID, false
 	}
 	return buffer.recorridoID, true
-}
-
-func (mapping *GpsBufferMapping) getLatest(id int) GpsPing {
-	buffer := mapping.m[id]
-	return buffer.getLatest()
 }
 
 // NewGpsBufferMapping is the GpsBufferMapping constructor
