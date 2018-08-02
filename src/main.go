@@ -77,6 +77,7 @@ func crawlOne(url string) {
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	defer resp.Body.Close()
 
@@ -103,7 +104,7 @@ func crawl() {
 		baseURL := "https://www.gpsbahia.com.ar/web/get_track_data"
 		lineas := []int{1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 30, 31}
 		// lineas := []int{7}
-		
+
 		if hash != "" {
 			for _, lineaID := range lineas {
 				url := fmt.Sprintf("%s/%d/%s", baseURL, lineaID, hash)

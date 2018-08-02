@@ -26,7 +26,7 @@ func InitDB() {
 	if err != nil {
 		log.Panic(err)
 	}
-	
+
 	db.Exec(`
 		CREATE TABLE IF NOT EXISTS gps (
 			id bigserial not null CONSTRAINT pk PRIMARY KEY,
@@ -72,7 +72,7 @@ func SaveGpsToDb(gps GpsPing, recorridoID int) {
 type pubmessage struct {
 	RecorridoID int
 	Timestamp   string
-	Point		string
+	Point       string
 	Angle       float64
 	Speed       float64
 	IDGps       int
@@ -81,15 +81,15 @@ type pubmessage struct {
 // SendToPub sends a message to the redis channel
 func SendToPub(gps GpsPing, recorridoID int) {
 	// send data to redis Pub/Sub
-	
-	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng))).ToWKT()
+
+	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lng, gps.Lat))).ToWKT()
 	if err != nil {
 		log.Println("error decoding")
 	}
 	data, err := json.Marshal(pubmessage{
 		RecorridoID: recorridoID,
 		Timestamp:   gps.Timestamp,
-		Point:		 point,
+		Point:       point,
 		Angle:       gps.Angle,
 		Speed:       gps.Speed,
 		IDGps:       gps.IDGps,
@@ -97,7 +97,7 @@ func SendToPub(gps GpsPing, recorridoID int) {
 	if err != nil {
 		log.Println("json marshal", err)
 	}
-	_, err = redisClient.Publish("gps-<id_recorrido>", data).Result()
+	_, err = redisClient.Publish(fmt.Sprintf("gps-%v", recorridoID), data).Result()
 	if err != nil {
 		log.Println("redis", err)
 	}
