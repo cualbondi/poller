@@ -32,7 +32,7 @@ func InitDB() {
 			id bigserial not null CONSTRAINT pk PRIMARY KEY,
 			timestamp timestamp,
 			latlng geometry(Point, 0),
-			id_gps bigint,
+			id_gps text,
 			speed float,
 			angle float,
 			recorrido_id int,
@@ -52,7 +52,7 @@ func SaveGpsToDb(gps GpsPing, recorridoID int) {
 	query := `
 		INSERT INTO gps (timestamp, latlng, id_gps, speed, angle, recorrido_id, meta) VALUES (?)
 	`
-	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lat, gps.Lng))).Hex()
+	var point, err = geos.Must(geos.NewPoint(geos.NewCoord(gps.Lng, gps.Lat))).Hex()
 	if err != nil {
 		log.Println("error decoding")
 	}
@@ -75,7 +75,7 @@ type pubmessage struct {
 	Point       string
 	Angle       float64
 	Speed       float64
-	IDGps       int
+	IDGps       string
 }
 
 // SendToPub sends a message to the redis channel

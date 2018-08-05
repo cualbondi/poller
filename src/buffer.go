@@ -98,13 +98,13 @@ func (buffer *GpsBuffer) getLatest() GpsPing {
 	return buffer.values[len(buffer.values)-1]
 }
 
-func NewGpsBuffer(gps GpsPing) GpsBuffer {
-	return GpsBuffer{[]GpsPing{gps}, []int{0}, gps.Timestamp, 0, 0}
+func NewGpsBuffer(gps GpsPing) *GpsBuffer {
+	return &GpsBuffer{[]GpsPing{gps}, []int{0}, gps.Timestamp, 0, 0}
 }
 
 // GpsBufferMapping is a map from ids to buffers
 type GpsBufferMapping struct {
-	m     map[int]GpsBuffer
+	m     map[string]*GpsBuffer
 	mutex sync.Mutex
 }
 
@@ -118,21 +118,20 @@ func (mapping *GpsBufferMapping) update(gps GpsPing) (int, bool) {
 		mapping.m[gps.IDGps] = NewGpsBuffer(gps)
 		return 0, false
 	}
-
-	if buffer.lastUpdated == gps.Timestamp {
+	if (*buffer).lastUpdated == gps.Timestamp {
 		return 0, false
 	}
 
-	buffer.lastUpdated = gps.Timestamp
-	buffer.push(gps)
+	(*buffer).lastUpdated = gps.Timestamp
+	(*buffer).push(gps)
 
-	if len(buffer.values) < 2 {
+	if len((*buffer).values) < 2 {
 		return buffer.recorridoID, false
 	}
-	return buffer.recorridoID, true
+	return (*buffer).recorridoID, true
 }
 
 // NewGpsBufferMapping is the GpsBufferMapping constructor
 func NewGpsBufferMapping() GpsBufferMapping {
-	return GpsBufferMapping{make(map[int]GpsBuffer), sync.Mutex{}}
+	return GpsBufferMapping{make(map[string]*GpsBuffer), sync.Mutex{}}
 }

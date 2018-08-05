@@ -18,7 +18,7 @@ type GpsPing struct {
 	Lng       float64 `json:",string"`
 	Angle     float64 `json:",string"`
 	Speed     float64 `json:",string"`
-	IDGps     int     `json:"gps,string"`
+	IDGps     string  `json:"gps"`
 	LineaID   int     `json:"linea_id,string"`
 	Interno   string  `json:"interno"`
 }
@@ -88,9 +88,7 @@ func crawlOne(url string) {
 	}
 	json.Unmarshal(body, &response)
 	for _, gps := range response.Data {
-
 		recorridoID, shouldSave := gpsBufferMapping.update(gps)
-
 		if shouldSave {
 			SaveGpsToDb(gps, recorridoID)
 			SendToPub(gps, recorridoID)
